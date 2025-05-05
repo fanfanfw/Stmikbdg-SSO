@@ -60,12 +60,12 @@
                         'img' => '/images/leader.png'
                     ];
                     break;
-		case 'is_dospem':
-		    $setRoles['Dosen Pembimbing']=[
-			'role' => $role,
-			'img' => '/images/dosen.jpeg'
-		   ];
-		   break;
+		        case 'is_dospem':
+		            $setRoles['Dosen Pembimbing']=[
+			            'role' => $role,
+			            'img' => '/images/dosen.jpeg'
+		            ];
+		            break;
                 default:
                     break;
             }
