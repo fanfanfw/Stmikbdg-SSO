@@ -184,6 +184,13 @@ class AuthController extends Controller
         $statusCode = $validateAccess->getStatusCode();
         $siteDetail = $this->service->getSiteInfo($site)->getData('data');
 
+        if($siteDetail['status'] === 'fail') {
+            return view('contents.login', [
+                'error' => '404',
+                'message' => 'Alamat web yang akan Anda akses setelah login tidak ditemukan.'
+            ]);
+        }
+
         if ($statusCode == 403) {
             return view('contents.forbidden', [
                 'error' => '403',
