@@ -206,9 +206,15 @@
                     e.preventDefault();
 
                     const url = new URL(window.location.href);
-                    const siteDst = new URL(url.searchParams.get('site')).hostname;
-                    const siteDstPort = new URL(url.searchParams.get('site')).port;
-                    const hasPort = siteDstPort ? `:${siteDstPort}` : '';
+                    const siteParam = url.searchParams.get('site');
+
+                    if (!siteParam) {
+                        alert('Missing "site" query parameter');
+                        return;
+                    }
+
+                    const siteDstURL = new URL(siteParam);
+                    const siteDstOrigin = siteDstURL.origin; 
 
                     $.ajax({
                         url: '/authenticate',
@@ -225,33 +231,21 @@
                             const roles = response.data.roles;
                             const rolesLength = Object.keys(roles).length;
 
-                            if (xhr.status === 201 && (rolesLength > 1)) {
-                                return window.location = `/verify?site=http://${siteDst}${hasPort}`;
-                            } else if (xhr.status === 201 && (rolesLength === 1)){
+                            if (xhr.status === 201 && rolesLength > 1) {
+                                window.location = `/verify?site=${siteDstOrigin}`;
+                            } else if (xhr.status === 201 && rolesLength === 1) {
                                 const rolesKey = Object.keys(roles);
-                                return window.location = `/verify?site=http://${siteDst}${hasPort}&role=${rolesKey}`;
+                                window.location = `/verify?site=${siteDstOrigin}&role=${rolesKey}`;
                             }
                         },
                         error: (xhr, status) => {
                             $.LoadingOverlay('hide');
-                            if (xhr.status === 401) {
-                                const { responseJSON: { message } } = xhr;
+                            const { responseJSON: { message } = {} } = xhr;
 
+                            if (xhr.status === 401 || xhr.status === 429) {
                                 Swal.fire({
-                                    icon: 'error',
-                                    html: message,
-                                    toast: true,
-                                    timer: 5000,
-                                    position: 'top-right',
-                                    showConfirmButton: false,
-                                    timerProgressBar: true,
-                                })
-                            } else if (xhr.status === 429) {
-                                const { responseJSON: { message } } = xhr;
-
-                                Swal.fire({
-                                    icon: 'warning',
-                                    html: message,
+                                    icon: xhr.status === 401 ? 'error' : 'warning',
+                                    html: message || 'An error occurred',
                                     toast: true,
                                     timer: 5000,
                                     position: 'top-right',
@@ -262,8 +256,16 @@
                                 console.log(xhr);
                             }
                         }
-                    })
+                    });
                 });
+
+                // show modal forgot password
+                $('#forgotPassword').on('click', (e) => {
+                    e.preventDefault();
+                    $('#formForgotPassword #verifyEmail').val('');
+                    $('#otp, #newPassword, #confirmPassword').prop('disabled', true).val('');
+                    $('#modalForgotPassword').modal('show');
+                }); 
 
                 // show modal forgot password for send email
                 $('#forgotPasswordText').on('click', (e) => {
