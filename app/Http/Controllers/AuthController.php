@@ -187,7 +187,8 @@ class AuthController extends Controller
         if($siteDetail['status'] === 'fail') {
             return view('contents.login', [
                 'error' => '404',
-                'message' => 'Alamat web yang akan Anda akses setelah login tidak ditemukan.'
+                'message' => 'Alamat web yang akan Anda akses setelah login tidak ditemukan.',
+                'site' => $site
             ]);
         }
 
