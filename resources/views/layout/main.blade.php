@@ -85,7 +85,7 @@
 
                     const siteDst = $('input[name="site_destination"]').val();
 
-                    window.location.href = `logout?site=${siteDst}`;
+                    window.location.href = `/logout?site=${encodeURIComponent(siteDst)}`;
                 })
             });
         </script>

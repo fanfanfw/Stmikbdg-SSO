@@ -3,17 +3,18 @@
 namespace App\Models;
 
 use Illuminate\Database\Eloquent\Factories\HasFactory;
-use App\Models\MyWebService;
 
 class AuthService extends MyWebService
 {
     use HasFactory;
 
-    public function __construct() {
+    public function __construct()
+    {
         parent::__construct('authentications');
     }
 
-    public function login(string $email, string $password) {
+    public function login(string $email, string $password)
+    {
         $payload = [
             'email' => $email,
             'password' => $password,
@@ -22,15 +23,18 @@ class AuthService extends MyWebService
         return $this->post($payload, '?platform=web');
     }
 
-    public function validateUserSiteAccess(string $siteURL) {
-        return $this->get(null, '/check/site?url=' . $siteURL);
+    public function validateUserSiteAccess(string $siteURL)
+    {
+        return $this->get(null, '/check/site?'.http_build_query(['url' => $siteURL]));
     }
 
-    public function logout() {
+    public function logout()
+    {
         return $this->delete();
     }
 
-    public function verifyEmailForgotPassword(string $email) {
+    public function verifyEmailForgotPassword(string $email)
+    {
         $payload = [
             'email' => $email,
         ];
@@ -51,9 +55,10 @@ class AuthService extends MyWebService
         return $this->post($payload, '/password/reset');
     }
 
-    public function getSiteInfo(string $url) {
-        $query = '?url=' . $url;
+    public function getSiteInfo(string $url)
+    {
+        $query = '?'.http_build_query(['url' => $url]);
 
-        return $this->get(null, ('/detail/site' . $query));
+        return $this->get(null, ('/detail/site'.$query));
     }
 }

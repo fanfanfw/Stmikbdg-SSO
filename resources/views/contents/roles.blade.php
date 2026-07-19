@@ -92,7 +92,7 @@
             const target = e.delegateTarget;
             const role = $(target).data('role');
             const siteDst = $(target).data('site');
-            const url = `/verify?site=${siteDst}&role=${role}`;
+            const url = `/verify?site=${encodeURIComponent(siteDst)}&role=${encodeURIComponent(role)}`;
 
             if (role == 'is_dev') {
                 Swal.fire({

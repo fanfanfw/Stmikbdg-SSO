@@ -20,7 +20,7 @@
 
             const target = e.delegateTarget;
             const siteDst = $(target).data('site');
-            const url = `/verify?site=${siteDst}`;
+            const url = `/verify?site=${encodeURIComponent(siteDst)}`;
 
             window.location.href = url;
         })

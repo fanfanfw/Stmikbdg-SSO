@@ -213,8 +213,7 @@
                         return;
                     }
 
-                    const siteDstURL = new URL(siteParam);
-                    const siteDstOrigin = siteDstURL.origin; 
+                    const siteDst = new URL(siteParam).href;
 
                     $.ajax({
                         url: '/authenticate',
@@ -232,10 +231,10 @@
                             const rolesLength = Object.keys(roles).length;
 
                             if (xhr.status === 201 && rolesLength > 1) {
-                                window.location = `/verify?site=${siteDstOrigin}`;
+                                window.location = `/verify?site=${encodeURIComponent(siteDst)}`;
                             } else if (xhr.status === 201 && rolesLength === 1) {
-                                const rolesKey = Object.keys(roles);
-                                window.location = `/verify?site=${siteDstOrigin}&role=${rolesKey}`;
+                                const rolesKey = Object.keys(roles)[0];
+                                window.location = `/verify?site=${encodeURIComponent(siteDst)}&role=${encodeURIComponent(rolesKey)}`;
                             }
                         },
                         error: (xhr, status) => {

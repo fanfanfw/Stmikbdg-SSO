@@ -2,29 +2,31 @@
 
 namespace App\Http\Controllers;
 
-use Illuminate\Http\Request;
-use Illuminate\Support\Facades\Cookie;
-use Illuminate\Support\Facades\RateLimiter;
-
-// * Services
 use App\Models\AuthService;
 use App\Models\UserService;
+use Illuminate\Http\Request;
+// * Services
+use Illuminate\Support\Facades\Cookie;
 use Illuminate\Support\Facades\Http;
+use Illuminate\Support\Facades\RateLimiter;
 
 class AuthController extends Controller
 {
     protected $service;
+
     protected $userService;
 
-    public function __construct() {
-        $this->service = new AuthService();
-        $this->userService = new UserService();
+    public function __construct(AuthService $service, UserService $userService)
+    {
+        $this->service = $service;
+        $this->userService = $userService;
     }
 
-    public function index(Request $request) {
+    public function index(Request $request)
+    {
         $siteDst = filter_var($request->query('site'), FILTER_VALIDATE_URL);
 
-        if (!$siteDst) {
+        if (! $siteDst) {
             /**
              * Jika user langsung mengakses alamat loginnya saja, maka tidak ada site destination
              * Akan tetapi, bisa saja user telah login dan memiliki token sebelumnya
@@ -44,45 +46,47 @@ class AuthController extends Controller
 
             return view('contents.login', [
                 'error' => '404',
-                'message' => 'Alamat web yang akan Anda akses setelah login tidak ditemukan.'
+                'message' => 'Alamat web yang akan Anda akses setelah login tidak ditemukan.',
             ]);
         }
 
         $getSite = Http::get(
-            config('myconfig.api.base_url') . ('authentications/check/site/url?link=' . $siteDst)
+            config('myconfig.api.base_url').'authentications/check/site/url',
+            ['link' => $siteDst]
         )->json();
 
         if ($getSite['status'] !== 'success') {
             return view('contents.login', [
                 'error' => '404',
-                'message' => 'Alamat web yang akan Anda akses setelah login tidak ditemukan.'
+                'message' => 'Alamat web yang akan Anda akses setelah login tidak ditemukan.',
             ]);
         }
 
         if (request()->cookie('user_token') !== null) {
-            return redirect('/verify?site=' . $siteDst);
+            return redirect()->route('verify', ['site' => $siteDst]);
         }
 
         return view('auth.index'); // halaman login
     }
 
-    public function authenticate(Request $request) {
+    public function authenticate(Request $request)
+    {
         // rate limiter - batasi percobaan login
-        $throttleKey = 'signin' . $request->email;
+        $throttleKey = 'signin'.$request->email;
 
         if (RateLimiter::tooManyAttempts($throttleKey, 3)) {
             $seconds = RateLimiter::availableIn($throttleKey);
 
             return response()->json([
                 'status' => 'fail',
-                'message' => 'Terlalu banyak percobaan login.<br/>Coba lagi dalam ' . $seconds . ' detik',
+                'message' => 'Terlalu banyak percobaan login.<br/>Coba lagi dalam '.$seconds.' detik',
             ], 429);
         }
 
         // login ke api
         $login = $this->service->login($request->email, $request->password);
 
-        if($login->getData('data')['status'] === 'success') {
+        if ($login->getData('data')['status'] === 'success') {
             // simpan token dan roles user sebagai cookies
             $accessToken = $login->getData('data')['data']['token']['access_token'];
             $userRoles = $login->getData('data')['data']['roles'];
@@ -98,80 +102,89 @@ class AuthController extends Controller
         return $login;
     }
 
-    public function logout(Request $request) {
-        $siteDstPayload = filter_var($request->site, FILTER_VALIDATE_URL);
-        $siteDstQuery = filter_var($request->query('site'), FILTER_VALIDATE_URL);
+    public function logout(Request $request)
+    {
+        $siteDst = filter_var($request->query('site'), FILTER_VALIDATE_URL);
 
-        if (!$siteDstPayload || !$siteDstQuery) {
+        if (! $siteDst) {
             return view('contents.logout', [
                 'error' => '404',
-                'message' => 'Alamat web asal tidak ditemukan.'
+                'message' => 'Alamat web asal tidak ditemukan.',
             ]);
         }
 
         $this->service->logout();
 
-        $cookieToken = Cookie::forget('user_token');
-        $cookieRoles = Cookie::forget('user_roles');
-
-        return redirect('login?site=' . $siteDstPayload ? $siteDstPayload : $siteDstQuery)
-            ->withCookie($cookieToken)->withCookie($cookieRoles);
+        return redirect()->route('login', ['site' => $siteDst])
+            ->withCookie(Cookie::forget('user_token'))
+            ->withCookie(Cookie::forget('user_roles'));
     }
 
-    public function verifyUserSiteAccess(Request $request) {
+    public function verifyUserSiteAccess(Request $request)
+    {
         $siteDst = filter_var($request->query('site'), FILTER_VALIDATE_URL);
         $hasAccess = self::hasSiteAccess($siteDst);
 
-        if (!filter_var($hasAccess, FILTER_VALIDATE_BOOLEAN)) {
+        if ($hasAccess !== true) {
             return $hasAccess;
         }
 
-        if (!$request->query('role') and $hasAccess) {
+        if (! $request->query('role') and $hasAccess) {
             $getUserRoles = self::getUserRoles($siteDst, true);
+
             return self::roleSelections($getUserRoles, $siteDst);
         }
 
-        if (!$request->query('role')) {
+        if (! $request->query('role')) {
             $getUserRoles = self::getUserRoles($siteDst);
+
             return self::roleSelections($getUserRoles, $siteDst);
         }
 
         return self::redirectToSiteDst($siteDst, $request->query('role'));
     }
 
-    public function redirectToSiteDst($siteDst = null, $role = null) {
+    public function redirectToSiteDst($siteDst = null, $role = null)
+    {
         if ($siteDst) {
             $hasAccess = self::hasSiteAccess($siteDst);
 
-            if (!filter_var($hasAccess, FILTER_VALIDATE_BOOLEAN)) {
+            if ($hasAccess !== true) {
                 return $hasAccess;
             }
         } else {
             return view('contents.login', [
                 'error' => '404',
-                'message' => 'Alamat web yang akan Anda akses setelah login tidak ditemukan.'
+                'message' => 'Alamat web yang akan Anda akses setelah login tidak ditemukan.',
             ]);
         }
 
-        return redirect()->away(
-            $siteDst . '?token=' . request()->cookie('user_token') . '&role=' . $role
-        );
+        [$destination, $fragment] = array_pad(explode('#', $siteDst, 2), 2, null);
+        $separator = str_contains($destination, '?') ? '&' : '?';
+        $destination .= $separator.http_build_query([
+            'token' => request()->cookie('user_token'),
+            'role' => $role,
+        ]);
+
+        return redirect()->away($fragment === null ? $destination : $destination.'#'.$fragment);
     }
 
-    public function requestOTPByEmail(Request $request) {
+    public function requestOTPByEmail(Request $request)
+    {
         $request->validate([
-            'email' => 'string|email'
+            'email' => 'string|email',
         ]);
 
         return $this->service->verifyEmailForgotPassword($request->email);
     }
 
-    public function confirmResetPasswordByOTP(Request $request) {
+    public function confirmResetPasswordByOTP(Request $request)
+    {
         $request->validate([
             'email' => 'email',
             'otp' => 'string|min:6|max:6',
             'new_password' => 'string|min:8|max:64|regex:/^\S*$/u',
-            'confirm_password' => 'string|same:new_password'
+            'confirm_password' => 'string|same:new_password',
         ]);
 
         return $this->service->resetPasswordByOTP(
@@ -179,33 +192,45 @@ class AuthController extends Controller
         );
     }
 
-    private function hasSiteAccess($site) {
-        $validateAccess = $this->service->validateUserSiteAccess($site);
-        $statusCode = $validateAccess->getStatusCode();
-        $siteDetail = $this->service->getSiteInfo($site)->getData('data');
-
-        if($siteDetail['status'] === 'fail') {
+    private function hasSiteAccess($site)
+    {
+        if (! $site) {
             return view('contents.login', [
                 'error' => '404',
                 'message' => 'Alamat web yang akan Anda akses setelah login tidak ditemukan.',
-                'site' => $site
+            ]);
+        }
+
+        $validateAccess = $this->service->validateUserSiteAccess($site);
+        $statusCode = $validateAccess->getStatusCode();
+
+        if ($statusCode == 401) {
+            return redirect()->route('logout', ['site' => $site]);
+        }
+
+        $siteDetail = $this->service->getSiteInfo($site)->getData('data');
+
+        if ($siteDetail['status'] === 'fail') {
+            return view('contents.login', [
+                'error' => '404',
+                'message' => 'Alamat web yang akan Anda akses setelah login tidak ditemukan.',
+                'site' => ['url' => $site],
             ]);
         }
 
         if ($statusCode == 403) {
             return view('contents.forbidden', [
                 'error' => '403',
-                'message' => 'Oops. Maaf, sepertinya Anda tidak memiliki hak akses ke ' . $siteDetail['data']['site']['name'],
+                'message' => 'Oops. Maaf, sepertinya Anda tidak memiliki hak akses ke '.$siteDetail['data']['site']['name'],
                 'site' => $siteDetail['data']['site'],
             ]);
-        } else if ($statusCode == 401) {
-            return redirect('/logout?site=' . $site);
         }
 
         return true;
     }
 
-    private function getUserRoles($site, $re = false) {
+    private function getUserRoles($site, $re = false)
+    {
         // check role user
         $roles = collect(unserialize(request()->cookie('user_roles')));
         $userRoles = $roles->filter(function ($value) {
@@ -224,25 +249,26 @@ class AuthController extends Controller
         $data = [
             'site' => [
                 'url' => $site['url'],
-                'name' => $site['name']
+                'name' => $site['name'],
             ],
-            'roles' => collect(array_intersect_assoc($userRoles, $site))
+            'roles' => collect(array_intersect_assoc($userRoles, $site)),
         ];
 
         return $data;
     }
 
-    private function roleSelections($userRoles, $siteDst) {
+    private function roleSelections($userRoles, $siteDst)
+    {
         $getUserRoles = $userRoles;
         $countRoles = $getUserRoles['roles']->count();
 
         if ($countRoles === 1) {
             return self::redirectToSiteDst($siteDst, $getUserRoles['roles']->keys()[0]);
-        } else if ($countRoles > 1) {
+        } elseif ($countRoles > 1) {
             return view('contents.roles', [
                 'site' => $getUserRoles['site'],
                 'roles' => $getUserRoles['roles']->keys(),
-                'message' => 'Anda memliki beberapa role aktif. Silahkan pilih role yang sesuai untuk mengakses ' . $getUserRoles['site']['name'] . '.'
+                'message' => 'Anda memliki beberapa role aktif. Silahkan pilih role yang sesuai untuk mengakses '.$getUserRoles['site']['name'].'.',
             ]);
         }
     }
